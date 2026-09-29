@@ -490,6 +490,18 @@ input[type="text"].title, textarea {
   padding: 4px 2px;
 }
 input[type="text"].title { font-size: 1.1rem; }
+
+input.daypick {
+  font: inherit;
+  font-size: .95rem;
+  color: var(--ink);
+  background: var(--paper);
+  border: 1px solid var(--rule);
+  border-radius: 6px;
+  padding: 7px 11px;
+  font-variant-numeric: tabular-nums;
+}
+input.daypick:hover { border-color: var(--pen); }
 input[type="text"].title::placeholder, textarea::placeholder { color: var(--ink-soft); }
 
 textarea {
@@ -693,6 +705,12 @@ textarea {
     <!-- 작성 · 수정 -->
     <form id="edit" hidden>
       <p class="resumed" id="e-resumed" hidden>쓰다 만 내용을 그대로 불러왔어요.</p>
+
+      <div class="group">
+        <label class="field" for="e-date">날짜 — 잘못 골랐다면 여기서 옮기면 됩니다</label>
+        <input id="e-date" type="date" class="daypick">
+      </div>
+
       <div class="group">
         <label class="field" for="e-title">제목</label>
         <input class="title" id="e-title" type="text" maxlength="80" placeholder="오늘을 한 줄로">
@@ -795,6 +813,8 @@ textarea {
       title: $("e-title").value,
       body: $("e-body").value,
       mood: draft.mood,
+      id: draft.id || null,               // 날짜를 옮기던 중이었다는 표시.
+      from: draft.originalDate || null,   // 이게 없으면 돌아왔을 때 새 일기로 잘못 저장된다
       at: Date.now()
     };
     try {
@@ -1050,7 +1070,9 @@ textarea {
   function openEdit(key) {
     var e = entries.get(key);
     draft = {
-      date: key,
+      date: key,                              // 지금 고른 날짜 — 날짜 칸을 바꾸면 여기도 따라 바뀐다
+      originalDate: e ? key : null,           // 이미 저장된 일기가 놓여 있던 날짜
+      id: (e && e.id) || null,
       mood: (e && e.mood) || null,
       photoPath: (e && e.photoPath) || null,
       originalPhotoPath: (e && e.photoPath) || null
@@ -1058,6 +1080,7 @@ textarea {
     clearPending();
 
     $("d-day").textContent = label(key);
+    $("e-date").value = key;
     $("d-mood").hidden = true;
     $("e-title").value = (e && e.title) || "";
     $("e-body").value = (e && e.body) || "";
@@ -1068,6 +1091,18 @@ textarea {
       $("e-title").value = kept.title || "";
       $("e-body").value = kept.body || "";
       draft.mood = kept.mood || null;
+
+      // 날짜를 옮기던 중에 끊긴 경우 — 원래 행을 계속 고쳐야 일기가 둘로 갈라지지 않는다
+      if (kept.id && !draft.id) {
+        var still = null;
+        entries.forEach(function (v) { if (v.id === kept.id) still = v; });
+        if (still) {
+          draft.id = still.id;
+          draft.originalDate = still.date;
+          draft.photoPath = still.photoPath;
+          draft.originalPhotoPath = still.photoPath;
+        }
+      }
     }
     $("e-resumed").hidden = !kept;
 
@@ -1144,11 +1179,26 @@ textarea {
       photo_path: photoPath || null
     };
 
-    var res = await sb.from("entries").upsert(row, { onConflict: "user_id,date" }).select().single();
+    // 이미 일기가 있는 날로 옮기려 하면 그 날 글을 덮어써 버린다. 그전에 막는다.
+    if (entries.has(draft.date) && draft.date !== draft.originalDate) {
+      $("e-save").disabled = false;
+      $("e-save").textContent = "저장";
+      showMsg("e-msg", label(draft.date) + "에는 이미 일기가 있어요. 다른 날을 고르거나 그 날 일기를 먼저 지워 주세요.");
+      return;
+    }
+
+    // 저장된 일기는 행을 그대로 두고 날짜만 옮긴다 — 지웠다 새로 쓰면 그 사이에 사라질 수 있다
+    var res = draft.id
+      ? await sb.from("entries").update(row).eq("id", draft.id).select().single()
+      : await sb.from("entries").upsert(row, { onConflict: "user_id,date" }).select().single();
+
     if (res.error) {
       $("e-save").disabled = false;
       $("e-save").textContent = "저장";
-      showMsg("e-msg", saying(res.error, "저장하"));
+      var dup = String(res.error.code) === "23505";
+      showMsg("e-msg", dup
+        ? label(draft.date) + "에는 이미 일기가 있어요. 다른 날을 골라 주세요."
+        : saying(res.error, "저장하"));
       return;
     }
 
@@ -1159,6 +1209,11 @@ textarea {
       try { await sb.storage.from(BUCKET).remove([old]); } catch (err) { /* 남아도 화면에는 영향이 없다 */ }
     }
 
+    // 날짜를 옮겼으면 원래 있던 날의 흔적을 걷어낸다
+    if (draft.originalDate && draft.originalDate !== draft.date) {
+      entries.delete(draft.originalDate);
+      dropDraft(draft.originalDate);
+    }
     entries.set(draft.date, toEntry(res.data));
     dropDraft(draft.date);
     clearPending();
@@ -1193,6 +1248,7 @@ textarea {
 
   function toEntry(row) {
     return {
+      id: row.id,
       date: row.date,
       title: row.title || "",
       body: row.body || "",
@@ -1202,7 +1258,7 @@ textarea {
   }
 
   async function loadEntries() {
-    var res = await sb.from("entries").select("date,title,body,mood,photo_path").order("date", { ascending: false });
+    var res = await sb.from("entries").select("id,date,title,body,mood,photo_path").order("date", { ascending: false });
     if (res.error) {
       notice(saying(res.error, "일기를 불러오"));
       return;
@@ -1298,12 +1354,12 @@ textarea {
   $("v-del-yes").addEventListener("click", remove);
 
   $("e-cancel").addEventListener("click", function () {
-    var date = draft.date;
+    var back = draft.originalDate || draft.date;   // 날짜를 옮기던 중이었다면 원래 날로 돌아간다
     clearPending();
-    dropDraft(date);               // 취소는 버리겠다는 뜻이니 임시본도 같이 지운다
+    dropDraft(draft.date);         // 취소는 버리겠다는 뜻이니 임시본도 같이 지운다
     draft = null;                  // 창이 닫히며 임시 저장이 되살아나지 않게 한다
     $("e-resumed").hidden = true;
-    if (entries.has(date)) openView(date); else $("dlg").close();
+    if (entries.has(back)) openView(back); else $("dlg").close();
     render();
   });
   $("edit").addEventListener("submit", save);
@@ -1317,6 +1373,23 @@ textarea {
   }
   $("e-title").addEventListener("input", scheduleDraft);
   $("e-body").addEventListener("input", scheduleDraft);
+
+  // 날짜를 바꾸면 쓰던 내용과 임시본이 통째로 그 날로 따라간다
+  $("e-date").addEventListener("change", function () {
+    if (!draft) return;
+    var next = this.value;
+    if (!next) { this.value = draft.date; return; }   // 비워 두는 것은 날짜 없음이 아니라 실수다
+    if (next === draft.date) return;
+    clearTimeout(draftTimer);
+    dropDraft(draft.date);
+    draft.date = next;
+    $("d-day").textContent = label(next);
+    showMsg("e-msg", entries.has(next) && next !== draft.originalDate
+      ? label(next) + "에는 이미 일기가 있어요. 이대로 저장할 수 없습니다."
+      : "");
+    saveDraft();
+    render();
+  });
   document.addEventListener("visibilitychange", function () {
     if (document.visibilityState === "hidden") { clearTimeout(draftTimer); saveDraft(); }
   });
