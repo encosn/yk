@@ -1,0 +1,83 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>yk</title>
+<meta name="robots" content="noindex, nofollow">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Gowun+Dodum&family=Nanum+Pen+Script&display=swap">
+<style>
+  :root {
+    --paper: #f6f7f9; --paper-2: #fff; --rule: #dfe4ec; --rule-faint: #e8ecf3;
+    --ink: #2b3444; --ink-soft: #707f95; --pen: #3b5ba9; --pen-soft: #e7ecf7; --margin: #c9524c;
+    padding-top: env(safe-area-inset-top, 0px);
+    padding-bottom: env(safe-area-inset-bottom, 0px);
+    color-scheme: light dark;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root:not([data-theme="light"]) {
+      --paper: #151a23; --paper-2: #1b212c; --rule: #26303f; --rule-faint: #202936;
+      --ink: #dbe3ee; --ink-soft: #8a99ad; --pen: #7e9fe0; --pen-soft: #232e40; --margin: #e0776f;
+    }
+  }
+  :root[data-theme="dark"] {
+    --paper: #151a23; --paper-2: #1b212c; --rule: #26303f; --rule-faint: #202936;
+    --ink: #dbe3ee; --ink-soft: #8a99ad; --pen: #7e9fe0; --pen-soft: #232e40; --margin: #e0776f;
+  }
+  * { box-sizing: border-box; }
+  html, body { margin: 0; }
+  body {
+    background: var(--paper);
+    color: var(--ink);
+    font-family: "Gowun Dodum", "맑은 고딕", system-ui, sans-serif;
+    font-size: 16px;
+    line-height: 1.7;
+  }
+  main {
+    position: relative;
+    max-width: 720px;
+    margin: 0 auto;
+    padding-inline: 22px;
+    padding-block: 26px 64px;
+    background-image: repeating-linear-gradient(
+      to bottom, transparent 0 31px, var(--rule-faint) 31px 32px);
+    background-position: 0 6px;
+  }
+  main::before {
+    content: ""; position: absolute; top: 0; bottom: 0; left: 12px;
+    width: 1px; background: var(--margin); opacity: .5;
+  }
+  h1 {
+    font-family: "Nanum Pen Script", "Gowun Dodum", cursive;
+    font-size: 2.6rem; line-height: 1.1; margin: 0 0 2px; color: var(--pen);
+  }
+  p.tagline { margin: 0 0 24px; color: var(--ink-soft); font-size: .82rem; letter-spacing: .04em; }
+  a.card {
+    display: block;
+    padding: 16px 18px;
+    background: var(--paper-2);
+    border: 1px solid var(--rule);
+    border-radius: 6px;
+    text-decoration: none;
+    color: inherit;
+  }
+  a.card:hover { border-color: var(--pen); background: var(--pen-soft); }
+  a.card:focus-visible { outline: 2px solid var(--pen); outline-offset: 2px; }
+  a.card strong { display: block; font-size: 1.1rem; color: var(--pen); }
+  a.card span { font-size: .88rem; color: var(--ink-soft); }
+  @media (min-width: 620px) { main { padding-inline: 34px; } main::before { left: 24px; } }
+</style>
+</head>
+<body>
+<main>
+  <h1>yk</h1>
+  <p class="tagline">개인용 웹앱 모음</p>
+  <a class="card" href="diary/">
+    <strong>오늘의 한 쪽</strong>
+    <span>달력으로 쓰는 일기장</span>
+  </a>
+</main>
+</body>
+</html>
