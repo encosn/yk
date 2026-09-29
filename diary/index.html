@@ -385,6 +385,38 @@ mark {
   color: var(--ink-soft);
 }
 
+/* 쓰다 만 글이 있을 때 첫 화면에 뜨는 줄 */
+.resume {
+  margin: 0 0 16px;
+  padding: 11px 14px;
+  border-left: 3px solid var(--pen);
+  background: var(--paper-2);
+  font-size: .88rem;
+}
+.resume p { margin: 0 0 8px; color: var(--ink-soft); }
+.resume .row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
+  padding: 4px 0;
+}
+.resume .when {
+  color: var(--pen);
+  font-variant-numeric: tabular-nums;
+  margin-right: auto;
+}
+.resume .btn { padding: 5px 13px; font-size: .84rem; }
+
+/* 저장은 안 했지만 쓰다 만 날 — 옅은 연필로 표시한다 */
+.pencil.ghost { opacity: .3; }
+
+.resumed {
+  margin: 0 0 14px;
+  font-size: .84rem;
+  color: var(--pen);
+}
+
 /* ── 작성 · 보기 창 ─────────────────────── */
 
 dialog {
@@ -603,6 +635,7 @@ textarea {
   </div>
 
   <p class="notice" id="notice" hidden></p>
+  <div class="resume" id="resume" hidden></div>
 
   <div class="bar">
     <button class="nav" id="prev" type="button" aria-label="이전 달">‹</button>
@@ -659,6 +692,7 @@ textarea {
 
     <!-- 작성 · 수정 -->
     <form id="edit" hidden>
+      <p class="resumed" id="e-resumed" hidden>쓰다 만 내용을 그대로 불러왔어요.</p>
       <div class="group">
         <label class="field" for="e-title">제목</label>
         <input class="title" id="e-title" type="text" maxlength="80" placeholder="오늘을 한 줄로">
@@ -745,6 +779,85 @@ textarea {
     return "x" + Date.now().toString(36) + Math.random().toString(36).slice(2, 10);
   };
 
+  // ── 임시 저장 ─────────────────────────────
+  // 저장을 누르기 전 내용을 이 기기 안에만 둔다. 휴대폰에서 다른 앱으로 갔다가
+  // 브라우저가 페이지를 버려도, 돌아왔을 때 쓰던 글이 그대로 남아 있게 하려는 것이다.
+  // 사진은 넣지 않는다 — 용량이 커서 이 저장 공간에 들어가지 않는다.
+
+  var DRAFT = "diary-draft:";
+  var draftDates = new Set();
+
+  function draftKey(date) { return DRAFT + uid + ":" + date; }
+
+  function saveDraft() {
+    if (!draft || $("edit").hidden) return;
+    var payload = {
+      title: $("e-title").value,
+      body: $("e-body").value,
+      mood: draft.mood,
+      at: Date.now()
+    };
+    try {
+      if (!payload.title && !payload.body && !payload.mood) localStorage.removeItem(draftKey(draft.date));
+      else localStorage.setItem(draftKey(draft.date), JSON.stringify(payload));
+    } catch (err) { /* 저장 공간이 막혀 있어도 일기장 자체는 계속 쓴다 */ }
+    refreshDrafts();
+  }
+
+  function readDraft(date) {
+    try {
+      var s = localStorage.getItem(draftKey(date));
+      return s ? JSON.parse(s) : null;
+    } catch (err) { return null; }
+  }
+
+  function dropDraft(date) {
+    try { localStorage.removeItem(draftKey(date)); } catch (err) { /* 무시 */ }
+    refreshDrafts();
+  }
+
+  function refreshDrafts() {
+    draftDates = new Set();
+    try {
+      var prefix = DRAFT + uid + ":";
+      for (var i = 0; i < localStorage.length; i++) {
+        var k = localStorage.key(i);
+        if (k && k.indexOf(prefix) === 0) draftDates.add(k.slice(prefix.length));
+      }
+    } catch (err) { /* 무시 */ }
+  }
+
+  // 저장한 일기와 내용이 같아진 임시본은 남겨 둘 이유가 없다
+  function pruneDrafts() {
+    refreshDrafts();
+    Array.from(draftDates).forEach(function (date) {   // dropDraft 가 목록을 새로 만드니 미리 떠 둔다
+      var d = readDraft(date), e = entries.get(date);
+      if (!d) return;
+      var empty = !d.title && !d.body && !d.mood;
+      var same = e && d.title === e.title && d.body === e.body && (d.mood || null) === e.mood;
+      if (empty || same) dropDraft(date);
+    });
+  }
+
+  function renderResume() {
+    var el = $("resume");
+    var dates = Array.from(draftDates).sort().reverse();
+    if (!dates.length) { el.hidden = true; el.innerHTML = ""; return; }
+
+    var html = "<p>저장하지 않고 쓰다 만 글이 있어요.</p>";
+    dates.forEach(function (date) {
+      var d = readDraft(date);
+      var peek = ((d && (d.title || d.body)) || "").replace(/\s+/g, " ").slice(0, 24);
+      html += '<div class="row">' +
+        '<span class="when">' + esc(shortLabel(date)) + (peek ? " · " + esc(peek) : "") + "</span>" +
+        '<button type="button" class="btn" data-resume="' + date + '">이어 쓰기</button>' +
+        '<button type="button" class="btn quiet" data-toss="' + date + '">버리기</button>' +
+        "</div>";
+    });
+    el.innerHTML = html;
+    el.hidden = false;
+  }
+
   function notice(text) {
     var el = $("notice");
     if (!text) { el.hidden = true; return; }
@@ -799,14 +912,17 @@ textarea {
       var key = y + "-" + pad(m + 1) + "-" + pad(i);
       var dow = new Date(y, m, i).getDay();
       var e = entries.get(key);
+      var wip = !e && draftDates.has(key);   // 저장은 안 했지만 쓰다 만 날
       var cls = "cell day" + (dow === 0 ? " sun" : dow === 6 ? " sat" : "") + (e ? " written" : "");
       var numCls = "num" + (key === todayKey ? " today" : "");
-      var aria = label(key) + (e ? ", 일기 있음" + (e.title ? ": " + e.title : "") : ", 비어 있음");
+      var aria = label(key) + (e ? ", 일기 있음" + (e.title ? ": " + e.title : "")
+                                : wip ? ", 쓰다 만 글 있음" : ", 비어 있음");
 
       html += '<button type="button" class="' + cls + '" data-key="' + key + '" aria-label="' + esc(aria) + '">' +
         '<span class="' + numCls + '">' + i + "</span>" +
         (e && e.mood ? '<span class="mood" aria-hidden="true">' + esc(e.mood) + "</span>" : "") +
-        (e ? '<span class="pencil">' + PENCIL + "</span>" : "") +
+        (e ? '<span class="pencil">' + PENCIL + "</span>"
+           : wip ? '<span class="pencil ghost">' + PENCIL + "</span>" : "") +
         "</button>";
     }
 
@@ -865,6 +981,7 @@ textarea {
     $("cal-wrap").hidden = searching;
     $("res-wrap").hidden = !searching;
     $("q-clear").hidden = !searching;
+    renderResume();
     if (searching) renderResults(); else renderCalendar();
   }
 
@@ -944,6 +1061,16 @@ textarea {
     $("d-mood").hidden = true;
     $("e-title").value = (e && e.title) || "";
     $("e-body").value = (e && e.body) || "";
+
+    // 쓰다 만 내용이 남아 있으면 그쪽을 살린다 — 저장한 판보다 나중 것이다
+    var kept = readDraft(key);
+    if (kept) {
+      $("e-title").value = kept.title || "";
+      $("e-body").value = kept.body || "";
+      draft.mood = kept.mood || null;
+    }
+    $("e-resumed").hidden = !kept;
+
     paintMoods();
     paintPhoto();
     showMsg("e-msg", "");
@@ -1033,6 +1160,7 @@ textarea {
     }
 
     entries.set(draft.date, toEntry(res.data));
+    dropDraft(draft.date);
     clearPending();
     render();
     openView(draft.date);
@@ -1055,6 +1183,7 @@ textarea {
       try { await sb.storage.from(BUCKET).remove([e.photoPath]); } catch (err) { /* 무시 */ }
     }
     entries.delete(key);
+    dropDraft(key);
     $("v-del-yes").disabled = false;
     $("dlg").close();
     render();
@@ -1081,6 +1210,7 @@ textarea {
     entries = new Map();
     (res.data || []).forEach(function (row) { entries.set(row.date, toEntry(row)); });
     notice("");
+    pruneDrafts();
     render();
   }
 
@@ -1101,6 +1231,7 @@ textarea {
 
   async function showApp(session) {
     uid = session.user.id;
+    refreshDrafts();
     $("gate-wrap").hidden = true;
     $("app").hidden = false;
     today = new Date();
@@ -1121,6 +1252,7 @@ textarea {
     b.addEventListener("click", function () {
       draft.mood = draft.mood === m ? null : m;
       paintMoods();
+      saveDraft();
     });
     $("e-moods").appendChild(b);
   });
@@ -1166,10 +1298,36 @@ textarea {
   $("v-del-yes").addEventListener("click", remove);
 
   $("e-cancel").addEventListener("click", function () {
+    var date = draft.date;
     clearPending();
-    if (entries.has(draft.date)) openView(draft.date); else $("dlg").close();
+    dropDraft(date);               // 취소는 버리겠다는 뜻이니 임시본도 같이 지운다
+    draft = null;                  // 창이 닫히며 임시 저장이 되살아나지 않게 한다
+    $("e-resumed").hidden = true;
+    if (entries.has(date)) openView(date); else $("dlg").close();
+    render();
   });
   $("edit").addEventListener("submit", save);
+
+  // 글자를 칠 때마다, 그리고 화면을 벗어나는 순간에 임시 저장한다.
+  // 휴대폰에서 앱을 바꾸면 visibilitychange 가 먼저 오고, 페이지가 버려지면 pagehide 가 온다.
+  var draftTimer;
+  function scheduleDraft() {
+    clearTimeout(draftTimer);
+    draftTimer = setTimeout(saveDraft, 400);
+  }
+  $("e-title").addEventListener("input", scheduleDraft);
+  $("e-body").addEventListener("input", scheduleDraft);
+  document.addEventListener("visibilitychange", function () {
+    if (document.visibilityState === "hidden") { clearTimeout(draftTimer); saveDraft(); }
+  });
+  window.addEventListener("pagehide", function () { clearTimeout(draftTimer); saveDraft(); });
+
+  $("resume").addEventListener("click", function (ev) {
+    var go = ev.target.closest("[data-resume]");
+    if (go) { openEdit(go.getAttribute("data-resume")); return; }
+    var toss = ev.target.closest("[data-toss]");
+    if (toss) { dropDraft(toss.getAttribute("data-toss")); render(); }
+  });
 
   $("e-pick").addEventListener("click", function () { $("e-file").click(); });
   $("e-file").addEventListener("change", async function () {
@@ -1193,9 +1351,13 @@ textarea {
     paintPhoto();
   });
 
+  // Esc 로 닫는 것은 버리겠다는 뜻이 아니므로, 쓰던 내용을 남겨 둔다
   $("dlg").addEventListener("close", function () {
+    clearTimeout(draftTimer);
+    saveDraft();
     clearPending();
     $("v-confirm").hidden = true;
+    if (uid) render();
   });
 
   $("login").addEventListener("submit", async function (ev) {
