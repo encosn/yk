@@ -4,80 +4,226 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <title>yk</title>
+<meta name="description" content="개인용 웹앱 모음">
 <meta name="robots" content="noindex, nofollow">
+<meta name="theme-color" content="#fff8ef" media="(prefers-color-scheme: light)">
+<meta name="theme-color" content="#161320" media="(prefers-color-scheme: dark)">
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect width='32' height='32' rx='8' fill='%237c6cf0'/%3E%3Ctext x='16' y='23' font-size='19' font-family='sans-serif' font-weight='bold' fill='%23fff' text-anchor='middle'%3Ey%3C/text%3E%3C/svg%3E">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Gowun+Dodum&family=Nanum+Pen+Script&display=swap">
+<link href="https://fonts.googleapis.com/css2?family=Jua&display=swap" rel="stylesheet">
 <style>
+  /* 「중학교 정보 수업 활동」 페이지와 같은 카드 구조를 썼다.
+     제목은 Jua, 본문은 시스템 고딕. 앱마다 다른 색은 --u 로 넘긴다. */
+
   :root {
-    --paper: #f6f7f9; --paper-2: #fff; --rule: #dfe4ec; --rule-faint: #e8ecf3;
-    --ink: #2b3444; --ink-soft: #707f95; --pen: #3b5ba9; --pen-soft: #e7ecf7; --margin: #c9524c;
-    padding-top: env(safe-area-inset-top, 0px);
-    padding-bottom: env(safe-area-inset-bottom, 0px);
+    --c-text: #33283c;
+    --c-text-sub: #6b5f77;
+    --c-line: #ece3f2;
+    --c-card: #ffffff;
+    --c-bg-1: #fff8ef;
+    --c-bg-2: #ffeef6;
+    --c-bg-3: #eef7ff;
+    --c-badge: #f4f1fa;
+    --shadow-head: 0 12px 28px rgba(124, 108, 240, .12);
+    --shadow-card: 0 8px 20px rgba(90, 70, 130, .08);
+    --shadow-hover: 0 16px 32px rgba(90, 70, 130, .18);
+    --radius: 24px;
+    --u: #7c6cf0;                 /* 앱 색 기본값. 카드마다 덮어쓴다 */
     color-scheme: light dark;
   }
+
+  /* 폰에서 밤에 여는 일이 많아 어두운 화면도 맞춰 둔다 */
   @media (prefers-color-scheme: dark) {
-    :root:not([data-theme="light"]) {
-      --paper: #151a23; --paper-2: #1b212c; --rule: #26303f; --rule-faint: #202936;
-      --ink: #dbe3ee; --ink-soft: #8a99ad; --pen: #7e9fe0; --pen-soft: #232e40; --margin: #e0776f;
+    :root {
+      --c-text: #e7e1ef;
+      --c-text-sub: #a79db4;
+      --c-line: #2f2942;
+      --c-card: #1e1a2b;
+      --c-bg-1: #161320;
+      --c-bg-2: #1b1524;
+      --c-bg-3: #131a26;
+      --c-badge: #272036;
+      --shadow-head: 0 12px 28px rgba(0, 0, 0, .45);
+      --shadow-card: 0 8px 20px rgba(0, 0, 0, .35);
+      --shadow-hover: 0 16px 32px rgba(0, 0, 0, .5);
     }
   }
-  :root[data-theme="dark"] {
-    --paper: #151a23; --paper-2: #1b212c; --rule: #26303f; --rule-faint: #202936;
-    --ink: #dbe3ee; --ink-soft: #8a99ad; --pen: #7e9fe0; --pen-soft: #232e40; --margin: #e0776f;
-  }
+
   * { box-sizing: border-box; }
   html, body { margin: 0; }
+
   body {
-    background: var(--paper);
-    color: var(--ink);
-    font-family: "Gowun Dodum", "맑은 고딕", system-ui, sans-serif;
-    font-size: 16px;
+    font-family: "Jua", "맑은 고딕", "Malgun Gothic", sans-serif;
+    font-size: 19px;
     line-height: 1.7;
+    color: var(--c-text);
+    background: linear-gradient(160deg, var(--c-bg-1) 0%, var(--c-bg-2) 55%, var(--c-bg-3) 100%);
+    background-attachment: fixed;
+    min-height: 100vh;
+    -webkit-text-size-adjust: 100%;
+    -webkit-tap-highlight-color: transparent;
+    word-break: keep-all;         /* 한글이 낱말 가운데서 끊기지 않게 */
+    overflow-wrap: anywhere;
+    padding-top: env(safe-area-inset-top, 0px);
+    padding-bottom: env(safe-area-inset-bottom, 0px);
   }
-  main {
-    position: relative;
-    max-width: 720px;
-    margin: 0 auto;
-    padding-inline: 22px;
-    padding-block: 26px 64px;
-    background-image: repeating-linear-gradient(
-      to bottom, transparent 0 31px, var(--rule-faint) 31px 32px);
-    background-position: 0 6px;
+
+  /* 설명글은 읽기 편하게 고딕으로. 제목만 Jua 를 쓴다 */
+  p, .meta, .badge, .go { font-family: "맑은 고딕", "Malgun Gothic", sans-serif; }
+
+  .wrap { max-width: 860px; margin: 0 auto; padding: 32px 20px 64px; }
+
+  /* ── 머리말 ─────────────────────────────────────────── */
+  .site-head {
+    background: var(--c-card);
+    border: 3px solid var(--c-line);
+    border-radius: var(--radius);
+    padding: 28px 30px;
+    margin-bottom: 26px;
+    box-shadow: var(--shadow-head);
   }
-  main::before {
-    content: ""; position: absolute; top: 0; bottom: 0; left: 12px;
-    width: 1px; background: var(--margin); opacity: .5;
+  .site-head h1 {
+    margin: 0 0 4px;
+    font-size: 38px;
+    font-weight: 400;
+    letter-spacing: -.5px;
+    line-height: 1.25;
   }
-  h1 {
-    font-family: "Nanum Pen Script", "Gowun Dodum", cursive;
-    font-size: 2.6rem; line-height: 1.1; margin: 0 0 2px; color: var(--pen);
+  .site-head .sub { margin: 0; color: var(--c-text-sub); font-size: 17px; }
+
+  /* ── 앱 카드 ────────────────────────────────────────── */
+  /* 300px: 카드 바닥의 배지 두 개와 [들어가기 →] 가 한 줄에 들어가는 최소 너비.
+     이보다 좁히면 폰에서 줄바꿈된다. */
+  .app-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+    gap: 20px;
   }
-  p.tagline { margin: 0 0 24px; color: var(--ink-soft); font-size: .82rem; letter-spacing: .04em; }
-  a.card {
-    display: block;
-    padding: 16px 18px;
-    background: var(--paper-2);
-    border: 1px solid var(--rule);
-    border-radius: 6px;
+
+  .app-card {
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+    min-width: 0;                 /* 좁은 폰에서 카드가 화면 밖으로 나가지 않게 */
     text-decoration: none;
     color: inherit;
+    background: var(--c-card);
+    border: 3px solid var(--c-line);
+    border-left: 14px solid var(--u);
+    border-radius: var(--radius);
+    padding: 24px 22px 20px;
+    box-shadow: var(--shadow-card);
+    transition: transform .16s ease, box-shadow .16s ease, border-color .16s ease;
   }
-  a.card:hover { border-color: var(--pen); background: var(--pen-soft); }
-  a.card:focus-visible { outline: 2px solid var(--pen); outline-offset: 2px; }
-  a.card strong { display: block; font-size: 1.1rem; color: var(--pen); }
-  a.card span { font-size: .88rem; color: var(--ink-soft); }
-  @media (min-width: 620px) { main { padding-inline: 34px; } main::before { left: 24px; } }
+  .app-card:hover,
+  .app-card:focus-visible {
+    transform: translateY(-5px);
+    border-color: var(--u);
+    border-left-color: var(--u);
+    box-shadow: var(--shadow-hover);
+    outline: none;
+  }
+  .app-card:active { transform: translateY(-1px); }
+
+  .app-top { display: flex; align-items: center; gap: 12px; }
+  .app-tag {
+    flex: 0 0 auto;
+    padding: 3px 15px;
+    border-radius: 999px;
+    background: var(--u);
+    color: #fff;
+    font-size: 16px;
+  }
+  .app-emoji { font-size: 30px; line-height: 1; }
+  .app-name { font-size: 26px; line-height: 1.25; }
+  .app-summary { margin: 0; color: var(--c-text-sub); font-size: 16px; line-height: 1.6; }
+
+  /* 카드 바닥 — 배지들과 [들어가기 →] 를 한 줄에 둔다 */
+  .app-foot {
+    display: flex;
+    flex-wrap: nowrap;
+    align-items: center;
+    gap: 8px;
+    margin-top: auto;
+    padding-top: 12px;
+    border-top: 2px dashed var(--c-line);
+  }
+  .badge {
+    flex: 0 0 auto;
+    white-space: nowrap;
+    padding: 2px 11px;
+    border-radius: 999px;
+    font-size: 14px;
+    background: var(--c-badge);
+    color: var(--c-text-sub);
+  }
+  /* 화면이 아주 좁으면 배지 하나만 말줄임된다. 줄바꿈보다 낫다 */
+  .badge.shrink { flex-shrink: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; }
+  .go { margin-left: auto; flex: 0 0 auto; white-space: nowrap; font-size: 15px; color: var(--u); }
+
+  /* ── 꼬리말 ─────────────────────────────────────────── */
+  .site-foot {
+    margin-top: 34px;
+    color: var(--c-text-sub);
+    font-size: 14px;
+    line-height: 1.7;
+  }
+  .site-foot p { margin: 0 0 4px; }
+
+  @media (prefers-reduced-motion: reduce) {
+    .app-card { transition: none; }
+    .app-card:hover, .app-card:focus-visible, .app-card:active { transform: none; }
+  }
 </style>
 </head>
 <body>
-<main>
-  <h1>yk</h1>
-  <p class="tagline">개인용 웹앱 모음</p>
-  <a class="card" href="diary/">
-    <strong>오늘의 한 쪽</strong>
-    <span>달력으로 쓰는 일기장</span>
-  </a>
-</main>
+
+<div class="wrap">
+
+  <header class="site-head">
+    <h1>yk</h1>
+    <p class="sub">개인용 웹앱 모음. 눌러서 들어가면 바로 시작해요.</p>
+  </header>
+
+  <div class="app-grid">
+
+    <a class="app-card" style="--u:#3a5bd9" href="https://nuntda-study.vercel.app">
+      <span class="app-top">
+        <span class="app-tag">영어</span>
+        <span class="app-emoji" aria-hidden="true">👁️</span>
+        <span class="app-name">눈트다</span>
+      </span>
+      <p class="app-summary">강의 듣고, 공부하고, 복습하고, 기록해요.</p>
+      <span class="app-foot">
+        <span class="badge">강의 진도</span>
+        <span class="badge shrink">3분 발화</span>
+        <span class="go">들어가기 →</span>
+      </span>
+    </a>
+
+    <a class="app-card" style="--u:#c9524c" href="diary/">
+      <span class="app-top">
+        <span class="app-tag">일기</span>
+        <span class="app-emoji" aria-hidden="true">📔</span>
+        <span class="app-name">오늘의 한 쪽</span>
+      </span>
+      <p class="app-summary">달력으로 쓰는 개인 일기장.</p>
+      <span class="app-foot">
+        <span class="badge">달력</span>
+        <span class="badge shrink">글 · 사진</span>
+        <span class="go">들어가기 →</span>
+      </span>
+    </a>
+
+  </div>
+
+  <footer class="site-foot">
+    <p>혼자 쓰는 앱들입니다. 각 앱에 로그인해야 열립니다.</p>
+    <p>일기 글과 사진은 이 저장소에 올라오지 않고, 본인만 열 수 있게 잠겨 있습니다.</p>
+  </footer>
+
+</div>
+
 </body>
 </html>
